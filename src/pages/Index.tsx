@@ -1,307 +1,316 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
-const DEMO_USERS = [
-  { id: 1, name: 'Алексей', beers: 45, avatar: '👨' },
-  { id: 2, name: 'Дмитрий', beers: 38, avatar: '👨‍🦰' },
-  { id: 3, name: 'Иван', beers: 32, avatar: '🧔' },
-  { id: 4, name: 'Сергей', beers: 28, avatar: '👨‍🦱' },
-  { id: 5, name: 'Михаил', beers: 24, avatar: '👨‍🦲' },
-];
+interface Upgrade {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  level: number;
+  multiplier: number;
+  icon: string;
+}
 
 const Index = () => {
-  const [attempts, setAttempts] = useState(3);
+  const [beers, setBeers] = useState(0);
+  const [beerPerClick, setBeerPerClick] = useState(1);
+  const [beerPerSecond, setBeerPerSecond] = useState(0);
   const [totalBeers, setTotalBeers] = useState(0);
-  const [isAdmin] = useState(true);
   const [isPouringAnimation, setIsPouringAnimation] = useState(false);
 
-  const drinkBeer = () => {
-    if (attempts <= 0) {
-      toast.error('У вас закончились попытки! Купите ещё в магазине 🍺');
+  const [upgrades, setUpgrades] = useState<Upgrade[]>([
+    {
+      id: 'tap',
+      name: 'Пивной кран',
+      description: '+1 пива за клик',
+      cost: 10,
+      level: 0,
+      multiplier: 1,
+      icon: '🚰'
+    },
+    {
+      id: 'bartender',
+      name: 'Бармен',
+      description: '+1 пиво/сек',
+      cost: 50,
+      level: 0,
+      multiplier: 1,
+      icon: '👨‍🍳'
+    },
+    {
+      id: 'brewery',
+      name: 'Пивоварня',
+      description: '+5 пива/сек',
+      cost: 200,
+      level: 0,
+      multiplier: 5,
+      icon: '🏭'
+    },
+    {
+      id: 'farm',
+      name: 'Ферма хмеля',
+      description: '+15 пива/сек',
+      cost: 1000,
+      level: 0,
+      multiplier: 15,
+      icon: '🌾'
+    },
+    {
+      id: 'factory',
+      name: 'Пивной завод',
+      description: '+50 пива/сек',
+      cost: 5000,
+      level: 0,
+      multiplier: 50,
+      icon: '🏗️'
+    },
+    {
+      id: 'corporation',
+      name: 'Пивная империя',
+      description: '+200 пива/сек',
+      cost: 25000,
+      level: 0,
+      multiplier: 200,
+      icon: '🏰'
+    }
+  ]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (beerPerSecond > 0) {
+        setBeers(prev => prev + beerPerSecond);
+        setTotalBeers(prev => prev + beerPerSecond);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [beerPerSecond]);
+
+  const clickBeer = () => {
+    setIsPouringAnimation(true);
+    setBeers(prev => prev + beerPerClick);
+    setTotalBeers(prev => prev + beerPerClick);
+    
+    setTimeout(() => {
+      setIsPouringAnimation(false);
+    }, 300);
+  };
+
+  const buyUpgrade = (upgradeId: string) => {
+    const upgrade = upgrades.find(u => u.id === upgradeId);
+    if (!upgrade) return;
+
+    const cost = Math.floor(upgrade.cost * Math.pow(1.15, upgrade.level));
+
+    if (beers < cost) {
+      toast.error('Недостаточно пива! 🍺');
       return;
     }
 
-    setIsPouringAnimation(true);
-    const amount = Math.floor(Math.random() * 500) + 100;
+    setBeers(prev => prev - cost);
     
-    setTimeout(() => {
-      setAttempts(prev => prev - 1);
-      setTotalBeers(prev => prev + amount);
-      setIsPouringAnimation(false);
-      toast.success(`Выпито ${amount} мл пива! 🍺`, {
-        description: `Осталось попыток: ${attempts - 1}`
+    setUpgrades(prev => prev.map(u => {
+      if (u.id === upgradeId) {
+        return { ...u, level: u.level + 1 };
+      }
+      return u;
+    }));
+
+    if (upgradeId === 'tap') {
+      setBeerPerClick(prev => prev + upgrade.multiplier);
+      toast.success(`${upgrade.icon} ${upgrade.name} улучшен!`, {
+        description: `Теперь +${beerPerClick + upgrade.multiplier} за клик`
       });
-    }, 600);
+    } else {
+      setBeerPerSecond(prev => prev + upgrade.multiplier);
+      toast.success(`${upgrade.icon} ${upgrade.name} куплен!`, {
+        description: `+${upgrade.multiplier} пива в секунду`
+      });
+    }
+  };
+
+  const getBonusReward = () => {
+    const bonus = Math.floor(beers * 0.1) + 100;
+    setBeers(prev => prev + bonus);
+    setTotalBeers(prev => prev + bonus);
+    toast.success(`🎁 Получен бонус: +${bonus} пива!`);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a140d] via-[#2d1f15] to-[#1a140d] pb-8">
-      <div className="container max-w-4xl mx-auto px-4 py-6">
-        <div className="text-center mb-8 relative">
+      <div className="container max-w-6xl mx-auto px-4 py-6">
+        <div className="text-center mb-6 relative">
           <div className="absolute inset-0 flex items-center justify-center opacity-10">
             <span className="text-9xl">🍺</span>
           </div>
           <h1 className="text-5xl font-bold text-[#F59E0B] mb-2 relative z-10 drop-shadow-lg">
-            Пивной Турнир
+            Пивной Кликер
           </h1>
           <p className="text-[#FEF7CD] text-lg relative z-10">
-            Соревнуйся с друзьями, пей виртуальное пиво! 🏆
+            Кликай, прокачивайся, строй империю! 🏆
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
           <Card className="bg-gradient-to-br from-[#2d1f15] to-[#1a140d] border-[#F59E0B]/30 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Icon name="Zap" className="text-[#F59E0B]" size={24} />
-                <h3 className="text-lg font-semibold text-[#FEF7CD]">Попытки</h3>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <Icon name="Beer" className="text-[#F59E0B]" size={32} />
+                <div>
+                  <h3 className="text-sm text-[#FEF7CD]/70">Текущее пиво</h3>
+                  <p className="text-3xl font-bold text-[#F59E0B]">
+                    {Math.floor(beers).toLocaleString()}
+                  </p>
+                </div>
               </div>
-              <Badge className="bg-[#F59E0B] text-[#1a140d] font-bold text-lg px-3 py-1">
-                {attempts}
-              </Badge>
             </div>
-            <p className="text-[#FEF7CD]/70 text-sm">
-              Каждая попытка = 1 стакан пива
-            </p>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-[#FEF7CD]/70">За клик:</span>
+                <span className="text-[#F59E0B] font-semibold">+{beerPerClick}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-[#FEF7CD]/70">В секунду:</span>
+                <span className="text-[#F59E0B] font-semibold">+{beerPerSecond}</span>
+              </div>
+            </div>
           </Card>
 
           <Card className="bg-gradient-to-br from-[#2d1f15] to-[#1a140d] border-[#F59E0B]/30 p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Icon name="Trophy" className="text-[#F59E0B]" size={24} />
-                <h3 className="text-lg font-semibold text-[#FEF7CD]">Всего выпито</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Icon name="Trophy" className="text-[#F59E0B]" size={32} />
+                <div>
+                  <h3 className="text-sm text-[#FEF7CD]/70">Всего налито</h3>
+                  <p className="text-3xl font-bold text-[#FEF7CD]">
+                    {Math.floor(totalBeers).toLocaleString()}
+                  </p>
+                </div>
               </div>
-              <Badge className="bg-[#FEF7CD] text-[#1a140d] font-bold text-lg px-3 py-1">
-                {totalBeers} мл
-              </Badge>
+              <Button
+                onClick={getBonusReward}
+                className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309]"
+              >
+                <Icon name="Gift" size={18} className="mr-2" />
+                Бонус
+              </Button>
             </div>
-            <p className="text-[#FEF7CD]/70 text-sm">
-              Твой суммарный результат
-            </p>
           </Card>
         </div>
 
-        <div className="text-center mb-8">
-          <Button
-            onClick={drinkBeer}
-            disabled={attempts <= 0 || isPouringAnimation}
-            className={`bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-white font-bold text-2xl px-12 py-8 rounded-2xl shadow-2xl transition-all duration-300 ${
-              isPouringAnimation ? 'animate-beer-pour' : 'hover:scale-105'
-            }`}
-          >
-            <span className="text-5xl mr-3">🍺</span>
-            Выпить пива!
-          </Button>
-          {attempts <= 0 && (
-            <p className="text-[#F59E0B] mt-4 font-semibold">
-              Попытки закончились! Купи ещё в магазине ↓
-            </p>
-          )}
-        </div>
-
-        <Tabs defaultValue="chat" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-[#2d1f15] border-[#F59E0B]/30">
-            <TabsTrigger value="chat" className="data-[state=active]:bg-[#F59E0B] data-[state=active]:text-[#1a140d]">
-              <Icon name="Users" size={18} className="mr-2" />
-              Чат
-            </TabsTrigger>
-            <TabsTrigger value="global" className="data-[state=active]:bg-[#F59E0B] data-[state=active]:text-[#1a140d]">
-              <Icon name="Globe" size={18} className="mr-2" />
-              Глобал
-            </TabsTrigger>
-            <TabsTrigger value="shop" className="data-[state=active]:bg-[#F59E0B] data-[state=active]:text-[#1a140d]">
-              <Icon name="ShoppingCart" size={18} className="mr-2" />
-              Магазин
-            </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="admin" className="data-[state=active]:bg-[#F59E0B] data-[state=active]:text-[#1a140d]">
-                <Icon name="Shield" size={18} className="mr-2" />
-                Админ
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          <TabsContent value="chat" className="mt-6">
-            <Card className="bg-[#2d1f15] border-[#F59E0B]/30 p-6">
-              <h2 className="text-2xl font-bold text-[#F59E0B] mb-4 flex items-center gap-2">
-                <Icon name="Trophy" size={28} />
-                Топ чата
-              </h2>
-              <div className="space-y-3">
-                {DEMO_USERS.map((user, index) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-[#1a140d] to-[#2d1f15] rounded-lg border border-[#F59E0B]/20 hover:border-[#F59E0B]/50 transition-all"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-3xl font-bold text-[#F59E0B] w-8">
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                      </div>
-                      <span className="text-3xl">{user.avatar}</span>
-                      <span className="text-[#FEF7CD] font-semibold text-lg">{user.name}</span>
-                    </div>
-                    <Badge className="bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]/50 text-lg px-4 py-2">
-                      🍺 {user.beers}
-                    </Badge>
+        <div className="grid md:grid-cols-2 gap-6">
+          <div>
+            <Card className="bg-[#2d1f15] border-[#F59E0B]/30 p-8">
+              <div className="flex flex-col items-center">
+                <Button
+                  onClick={clickBeer}
+                  className={`w-64 h-64 rounded-full bg-gradient-to-br from-[#F59E0B] via-[#FBBF24] to-[#F59E0B] hover:from-[#D97706] hover:via-[#F59E0B] hover:to-[#D97706] border-4 border-[#FEF7CD] shadow-2xl transition-all duration-200 ${
+                    isPouringAnimation ? 'scale-95' : 'hover:scale-105'
+                  }`}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-8xl">🍺</span>
+                    <span className="text-xl font-bold text-[#1a140d]">НАЛИТЬ!</span>
                   </div>
-                ))}
+                </Button>
+                <p className="text-[#FEF7CD]/70 mt-4 text-center">
+                  Кликай на кружку чтобы налить пива!
+                </p>
               </div>
             </Card>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="global" className="mt-6">
+          <div>
             <Card className="bg-[#2d1f15] border-[#F59E0B]/30 p-6">
               <h2 className="text-2xl font-bold text-[#F59E0B] mb-4 flex items-center gap-2">
-                <Icon name="Globe" size={28} />
-                Глобальный топ
+                <Icon name="TrendingUp" size={28} />
+                Улучшения
               </h2>
-              <div className="space-y-3">
-                {DEMO_USERS.map((user, index) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-[#1a140d] to-[#2d1f15] rounded-lg border border-[#F59E0B]/20 hover:border-[#F59E0B]/50 transition-all"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="text-3xl font-bold text-[#F59E0B] w-8">
-                        {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
-                      </div>
-                      <span className="text-3xl">{user.avatar}</span>
-                      <span className="text-[#FEF7CD] font-semibold text-lg">{user.name}</span>
-                    </div>
-                    <Badge className="bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]/50 text-lg px-4 py-2">
-                      🍺 {user.beers * 2}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </TabsContent>
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                {upgrades.map((upgrade) => {
+                  const cost = Math.floor(upgrade.cost * Math.pow(1.15, upgrade.level));
+                  const canAfford = beers >= cost;
 
-          <TabsContent value="shop" className="mt-6">
-            <Card className="bg-[#2d1f15] border-[#F59E0B]/30 p-6">
-              <h2 className="text-2xl font-bold text-[#F59E0B] mb-4 flex items-center gap-2">
-                <Icon name="ShoppingCart" size={28} />
-                Магазин попыток
-              </h2>
-              <div className="grid gap-4 md:grid-cols-3">
-                {[
-                  { attempts: 1, stars: 5, popular: false },
-                  { attempts: 3, stars: 10, popular: true },
-                  { attempts: 10, stars: 25, popular: false },
-                ].map((pack) => (
-                  <Card
-                    key={pack.attempts}
-                    className={`bg-gradient-to-br from-[#1a140d] to-[#2d1f15] border-2 ${
-                      pack.popular ? 'border-[#F59E0B]' : 'border-[#F59E0B]/30'
-                    } p-6 relative overflow-hidden`}
-                  >
-                    {pack.popular && (
-                      <Badge className="absolute top-3 right-3 bg-[#F59E0B] text-[#1a140d] font-bold">
-                        Популярное
-                      </Badge>
-                    )}
-                    <div className="text-center mb-4">
-                      <div className="text-5xl mb-2">🍺</div>
-                      <div className="text-3xl font-bold text-[#F59E0B] mb-1">
-                        {pack.attempts}
-                      </div>
-                      <div className="text-[#FEF7CD]/70">
-                        {pack.attempts === 1 ? 'попытка' : 'попыток'}
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => toast.success(`Куплено ${pack.attempts} попыток! ⭐`)}
-                      className="w-full bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] text-white font-bold"
+                  return (
+                    <Card
+                      key={upgrade.id}
+                      className={`bg-gradient-to-r from-[#1a140d] to-[#2d1f15] border p-4 transition-all ${
+                        canAfford
+                          ? 'border-[#F59E0B]/50 hover:border-[#F59E0B] cursor-pointer'
+                          : 'border-[#F59E0B]/20 opacity-60'
+                      }`}
+                      onClick={() => canAfford && buyUpgrade(upgrade.id)}
                     >
-                      ⭐ {pack.stars} звёзд
-                    </Button>
-                  </Card>
-                ))}
-              </div>
-              <p className="text-[#FEF7CD]/60 text-sm mt-6 text-center">
-                Оплата через Telegram Stars
-              </p>
-            </Card>
-          </TabsContent>
-
-          {isAdmin && (
-            <TabsContent value="admin" className="mt-6">
-              <Card className="bg-[#2d1f15] border-[#F59E0B]/30 p-6">
-                <h2 className="text-2xl font-bold text-[#F59E0B] mb-4 flex items-center gap-2">
-                  <Icon name="Shield" size={28} />
-                  Админ-панель
-                </h2>
-                <div className="space-y-4">
-                  <Card className="bg-[#1a140d] border-[#F59E0B]/20 p-4">
-                    <h3 className="text-[#FEF7CD] font-semibold mb-3">Управление игроками</h3>
-                    <div className="space-y-3">
-                      {DEMO_USERS.slice(0, 3).map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex items-center justify-between p-3 bg-[#2d1f15] rounded-lg"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-2xl">{user.avatar}</span>
-                            <span className="text-[#FEF7CD]">{user.name}</span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              onClick={() => toast.success(`Выдано +5 попыток для ${user.name}`)}
-                              className="bg-[#F59E0B] hover:bg-[#D97706] text-[#1a140d]"
-                            >
-                              <Icon name="Plus" size={16} className="mr-1" />
-                              +5
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => toast.info(`Сброс статистики для ${user.name}`)}
-                              className="border-[#F59E0B]/50 text-[#F59E0B] hover:bg-[#F59E0B]/10"
-                            >
-                              <Icon name="RotateCcw" size={16} />
-                            </Button>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <span className="text-4xl">{upgrade.icon}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-[#FEF7CD] font-semibold">
+                                {upgrade.name}
+                              </h3>
+                              {upgrade.level > 0 && (
+                                <Badge className="bg-[#F59E0B]/20 text-[#F59E0B] border-[#F59E0B]/50 text-xs">
+                                  ур. {upgrade.level}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-[#FEF7CD]/60 text-sm">
+                              {upgrade.description}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </Card>
-
-                  <Card className="bg-[#1a140d] border-[#F59E0B]/20 p-4">
-                    <h3 className="text-[#FEF7CD] font-semibold mb-3">Статистика</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="text-center p-3 bg-[#2d1f15] rounded-lg">
-                        <div className="text-2xl font-bold text-[#F59E0B]">127</div>
-                        <div className="text-[#FEF7CD]/70 text-sm">Всего игроков</div>
+                        <div className="text-right ml-4">
+                          <div className={`font-bold ${canAfford ? 'text-[#F59E0B]' : 'text-[#FEF7CD]/40'}`}>
+                            🍺 {cost.toLocaleString()}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-center p-3 bg-[#2d1f15] rounded-lg">
-                        <div className="text-2xl font-bold text-[#F59E0B]">3,450</div>
-                        <div className="text-[#FEF7CD]/70 text-sm">Всего выпито (л)</div>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              </Card>
-            </TabsContent>
-          )}
-        </Tabs>
+                      {upgrade.level > 0 && (
+                        <div className="mt-2">
+                          <Progress
+                            value={(upgrade.level % 10) * 10}
+                            className="h-1 bg-[#1a140d]"
+                          />
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        </div>
 
-        <div className="mt-8 text-center">
-          <Button
-            variant="outline"
-            className="border-[#F59E0B]/30 text-[#FEF7CD] hover:bg-[#F59E0B]/10"
-            onClick={() =>
-              toast.info('Доступные команды:\n/start - главное меню\n/pivo - выпить пива\n/top - топ чата\n/global - глобальный топ\n/buy - магазин\n/admin - админ панель\n/help - справка')
-            }
-          >
-            <Icon name="HelpCircle" size={18} className="mr-2" />
-            Справка и команды
-          </Button>
+        <div className="mt-6 grid md:grid-cols-3 gap-4">
+          <Card className="bg-gradient-to-br from-[#2d1f15] to-[#1a140d] border-[#F59E0B]/30 p-4 text-center">
+            <div className="text-3xl mb-2">🎯</div>
+            <div className="text-[#F59E0B] font-bold text-xl">
+              {upgrades.reduce((sum, u) => sum + u.level, 0)}
+            </div>
+            <div className="text-[#FEF7CD]/70 text-sm">Улучшений куплено</div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[#2d1f15] to-[#1a140d] border-[#F59E0B]/30 p-4 text-center">
+            <div className="text-3xl mb-2">⚡</div>
+            <div className="text-[#F59E0B] font-bold text-xl">
+              {beerPerSecond * 60}/мин
+            </div>
+            <div className="text-[#FEF7CD]/70 text-sm">Производство</div>
+          </Card>
+
+          <Card className="bg-gradient-to-br from-[#2d1f15] to-[#1a140d] border-[#F59E0B]/30 p-4 text-center">
+            <div className="text-3xl mb-2">🔥</div>
+            <div className="text-[#F59E0B] font-bold text-xl">
+              {beerPerClick}x
+            </div>
+            <div className="text-[#FEF7CD]/70 text-sm">Множитель клика</div>
+          </Card>
         </div>
       </div>
     </div>
