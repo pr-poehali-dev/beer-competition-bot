@@ -16,69 +16,87 @@ interface Upgrade {
   icon: string;
 }
 
+const INITIAL_UPGRADES: Upgrade[] = [
+  {
+    id: 'tap',
+    name: 'Пивной кран',
+    description: '+1 пива за клик',
+    cost: 10,
+    level: 0,
+    multiplier: 1,
+    icon: '🚰'
+  },
+  {
+    id: 'bartender',
+    name: 'Бармен',
+    description: '+1 пиво/сек',
+    cost: 50,
+    level: 0,
+    multiplier: 1,
+    icon: '👨‍🍳'
+  },
+  {
+    id: 'brewery',
+    name: 'Пивоварня',
+    description: '+5 пива/сек',
+    cost: 200,
+    level: 0,
+    multiplier: 5,
+    icon: '🏭'
+  },
+  {
+    id: 'farm',
+    name: 'Ферма хмеля',
+    description: '+15 пива/сек',
+    cost: 1000,
+    level: 0,
+    multiplier: 15,
+    icon: '🌾'
+  },
+  {
+    id: 'factory',
+    name: 'Пивной завод',
+    description: '+50 пива/сек',
+    cost: 5000,
+    level: 0,
+    multiplier: 50,
+    icon: '🏗️'
+  },
+  {
+    id: 'corporation',
+    name: 'Пивная империя',
+    description: '+200 пива/сек',
+    cost: 25000,
+    level: 0,
+    multiplier: 200,
+    icon: '🏰'
+  }
+];
+
+const loadGameState = () => {
+  try {
+    const saved = localStorage.getItem('beerClickerSave');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to load save:', e);
+  }
+  return null;
+};
+
 const Index = () => {
-  const [beers, setBeers] = useState(0);
-  const [beerPerClick, setBeerPerClick] = useState(1);
-  const [beerPerSecond, setBeerPerSecond] = useState(0);
-  const [totalBeers, setTotalBeers] = useState(0);
+  const savedState = loadGameState();
+
+  const [beers, setBeers] = useState(savedState?.beers || 0);
+  const [beerPerClick, setBeerPerClick] = useState(savedState?.beerPerClick || 1);
+  const [beerPerSecond, setBeerPerSecond] = useState(savedState?.beerPerSecond || 0);
+  const [totalBeers, setTotalBeers] = useState(savedState?.totalBeers || 0);
   const [isPouringAnimation, setIsPouringAnimation] = useState(false);
 
-  const [upgrades, setUpgrades] = useState<Upgrade[]>([
-    {
-      id: 'tap',
-      name: 'Пивной кран',
-      description: '+1 пива за клик',
-      cost: 10,
-      level: 0,
-      multiplier: 1,
-      icon: '🚰'
-    },
-    {
-      id: 'bartender',
-      name: 'Бармен',
-      description: '+1 пиво/сек',
-      cost: 50,
-      level: 0,
-      multiplier: 1,
-      icon: '👨‍🍳'
-    },
-    {
-      id: 'brewery',
-      name: 'Пивоварня',
-      description: '+5 пива/сек',
-      cost: 200,
-      level: 0,
-      multiplier: 5,
-      icon: '🏭'
-    },
-    {
-      id: 'farm',
-      name: 'Ферма хмеля',
-      description: '+15 пива/сек',
-      cost: 1000,
-      level: 0,
-      multiplier: 15,
-      icon: '🌾'
-    },
-    {
-      id: 'factory',
-      name: 'Пивной завод',
-      description: '+50 пива/сек',
-      cost: 5000,
-      level: 0,
-      multiplier: 50,
-      icon: '🏗️'
-    },
-    {
-      id: 'corporation',
-      name: 'Пивная империя',
-      description: '+200 пива/сек',
-      cost: 25000,
-      level: 0,
-      multiplier: 200,
-      icon: '🏰'
-    }
-  ]);
+  const [upgrades, setUpgrades] = useState<Upgrade[]>(
+    savedState?.upgrades || INITIAL_UPGRADES
+  );
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -90,6 +108,22 @@ const Index = () => {
 
     return () => clearInterval(interval);
   }, [beerPerSecond]);
+
+  useEffect(() => {
+    const saveInterval = setInterval(() => {
+      const gameState = {
+        beers,
+        beerPerClick,
+        beerPerSecond,
+        totalBeers,
+        upgrades,
+        lastSave: Date.now()
+      };
+      localStorage.setItem('beerClickerSave', JSON.stringify(gameState));
+    }, 2000);
+
+    return () => clearInterval(saveInterval);
+  }, [beers, beerPerClick, beerPerSecond, totalBeers, upgrades]);
 
   const clickBeer = () => {
     setIsPouringAnimation(true);
@@ -139,6 +173,18 @@ const Index = () => {
     setBeers(prev => prev + bonus);
     setTotalBeers(prev => prev + bonus);
     toast.success(`🎁 Получен бонус: +${bonus} пива!`);
+  };
+
+  const resetGame = () => {
+    if (confirm('Точно хочешь сбросить весь прогресс?')) {
+      localStorage.removeItem('beerClickerSave');
+      setBeers(0);
+      setBeerPerClick(1);
+      setBeerPerSecond(0);
+      setTotalBeers(0);
+      setUpgrades(INITIAL_UPGRADES);
+      toast.success('🔄 Игра сброшена!');
+    }
   };
 
   return (
@@ -311,6 +357,20 @@ const Index = () => {
             </div>
             <div className="text-[#FEF7CD]/70 text-sm">Множитель клика</div>
           </Card>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Button
+            onClick={resetGame}
+            variant="outline"
+            className="border-[#F59E0B]/30 text-[#FEF7CD] hover:bg-[#F59E0B]/10"
+          >
+            <Icon name="RotateCcw" size={18} className="mr-2" />
+            Сбросить прогресс
+          </Button>
+          <p className="text-[#FEF7CD]/50 text-xs mt-2">
+            💾 Игра автоматически сохраняется каждые 2 секунды
+          </p>
         </div>
       </div>
     </div>
