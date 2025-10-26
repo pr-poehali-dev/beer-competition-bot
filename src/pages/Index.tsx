@@ -93,6 +93,7 @@ const Index = () => {
   const [beerPerSecond, setBeerPerSecond] = useState(savedState?.beerPerSecond || 0);
   const [totalBeers, setTotalBeers] = useState(savedState?.totalBeers || 0);
   const [isPouringAnimation, setIsPouringAnimation] = useState(false);
+  const [lastBonusTime, setLastBonusTime] = useState(savedState?.lastBonusTime || 0);
 
   const [upgrades, setUpgrades] = useState<Upgrade[]>(
     savedState?.upgrades || INITIAL_UPGRADES
@@ -117,13 +118,14 @@ const Index = () => {
         beerPerSecond,
         totalBeers,
         upgrades,
+        lastBonusTime,
         lastSave: Date.now()
       };
       localStorage.setItem('beerClickerSave', JSON.stringify(gameState));
     }, 2000);
 
     return () => clearInterval(saveInterval);
-  }, [beers, beerPerClick, beerPerSecond, totalBeers, upgrades]);
+  }, [beers, beerPerClick, beerPerSecond, totalBeers, upgrades, lastBonusTime]);
 
   const clickBeer = () => {
     setIsPouringAnimation(true);
@@ -169,10 +171,32 @@ const Index = () => {
   };
 
   const getBonusReward = () => {
+    const now = Date.now();
+    const cooldown = 5 * 60 * 1000;
+    
+    if (now - lastBonusTime < cooldown) {
+      const remainingTime = Math.ceil((cooldown - (now - lastBonusTime)) / 1000 / 60);
+      toast.error(`⏳ Бонус будет доступен через ${remainingTime} мин`);
+      return;
+    }
+    
     const bonus = Math.floor(beers * 0.1) + 100;
     setBeers(prev => prev + bonus);
     setTotalBeers(prev => prev + bonus);
+    setLastBonusTime(now);
     toast.success(`🎁 Получен бонус: +${bonus} пива!`);
+  };
+
+  const getBonusTimeRemaining = () => {
+    const now = Date.now();
+    const cooldown = 5 * 60 * 1000;
+    const remaining = cooldown - (now - lastBonusTime);
+    
+    if (remaining <= 0) return null;
+    
+    const minutes = Math.floor(remaining / 1000 / 60);
+    const seconds = Math.floor((remaining / 1000) % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const resetGame = () => {
@@ -182,10 +206,22 @@ const Index = () => {
       setBeerPerClick(1);
       setBeerPerSecond(0);
       setTotalBeers(0);
+      setLastBonusTime(0);
       setUpgrades(INITIAL_UPGRADES);
       toast.success('🔄 Игра сброшена!');
     }
   };
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const timeRemaining = getBonusTimeRemaining();
+      if (timeRemaining === null && lastBonusTime > 0) {
+        return;
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lastBonusTime]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1a140d] via-[#2d1f15] to-[#1a140d] pb-8">
@@ -238,13 +274,21 @@ const Index = () => {
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={getBonusReward}
-                className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309]"
-              >
-                <Icon name="Gift" size={18} className="mr-2" />
-                Бонус
-              </Button>
+              <div className="flex flex-col items-end gap-1">
+                <Button
+                  onClick={getBonusReward}
+                  disabled={getBonusTimeRemaining() !== null}
+                  className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] hover:from-[#D97706] hover:to-[#B45309] disabled:opacity-50"
+                >
+                  <Icon name="Gift" size={18} className="mr-2" />
+                  Бонус
+                </Button>
+                {getBonusTimeRemaining() && (
+                  <span className="text-xs text-[#FEF7CD]/60">
+                    ⏳ {getBonusTimeRemaining()}
+                  </span>
+                )}
+              </div>
             </div>
           </Card>
         </div>
